@@ -1,0 +1,15 @@
+{
+    "success": true,
+    "message": "Login berhasil! Selamat datang kembali.",
+    "user": {
+        "id": 1,
+        "name": "Admin User",
+        "email": "admin@example.com",
+        "NIM": "1234567890",
+        "email_verified_at": null,
+        "role": "admin",
+        "created_at": "2025-09-19T18:42:18.000000Z",
+        "updated_at": "2025-09-19T18:42:18.000000Z"
+    },
+    "token": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOjEsIm5hbWUiOiJBZG1pbiBVc2VyIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc1ODM1MDA4NiwiZXhwIjoxNzU4NDM2NDg2fQ.XK9cB7IDCL3cvFzLUZ7ldBeL8CFrvzyFg3UCIz2OBGo"
+}

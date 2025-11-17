@@ -1,0 +1,14 @@
+{
+    "success": true,
+    "message": "Data pengguna berhasil diambil.",
+    "user": {
+        "id": 1,
+        "name": "Sarmin",
+        "email": "admin@example.com",
+        "NIM": "1234567890",
+        "email_verified_at": null,
+        "role": "admin",
+        "created_at": "2025-09-19T18:42:18.000000Z",
+        "updated_at": "2025-09-19T18:42:18.000000Z"
+    }
+}

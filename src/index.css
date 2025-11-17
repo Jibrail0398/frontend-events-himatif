@@ -1,0 +1,116 @@
+@keyframes bounceIn {
+  0% {
+    transform: translateY(50px) scale(0.9);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(-10px) scale(1.05);
+    opacity: 1;
+  }
+  80% {
+    transform: translateY(5px) scale(0.95);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-bounceIn {
+  animation: bounceIn 0.5s ease-out;
+}
+
+/* Overlay semi-transparan dengan blur */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0,0,0,0.35);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1;
+}
+
+/* Konten modal */
+.modal-content {
+  background-color: #ffffff;
+  border-radius: 1.5rem;
+  max-width: 520px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 2rem;
+  position: relative;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+  animation: bounceIn 0.5s ease-out;
+}
+
+/* Header modal */
+.modal-header {
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: #1f2937; /* abu gelap */
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.5rem;
+}
+
+/* Grid untuk detail peserta */
+.modal-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem 1.5rem;
+  color: #374151;
+  font-size: 0.925rem;
+  margin-top: 1rem;
+}
+
+.modal-details p {
+  margin: 0;
+}
+
+.modal-details span {
+  font-weight: 600;
+}
+
+/* Tombol modern */
+.modal-actions {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.modal-actions button {
+  padding: 0.55rem 1.25rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Warna tombol */
+.btn-yellow { background-color: #facc15; color: #1f2937; }
+.btn-yellow:hover { background-color: #eab308; }
+
+.btn-green { background-color: #22c55e; color: #ffffff; }
+.btn-green:hover { background-color: #16a34a; }
+
+.btn-gray { background-color: #9ca3af; color: #1f2937; }
+.btn-gray:hover { background-color: #6b7280; }
+
+/* Tombol close */
+.modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  font-size: 1.25rem;
+  color: #6b7280;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.modal-close:hover {
+  color: #111827;
+}
