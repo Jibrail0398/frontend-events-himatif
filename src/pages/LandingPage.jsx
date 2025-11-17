@@ -43,7 +43,7 @@ const LandingPage = () => {
     const fetchEvents = async () => {
       try {
         const response = await getPublicEvents();
-      
+        const allEvents = response.data;
         allEvents.forEach((event) => {
           console.log(
             `Event "${event.nama_event}" - Status: "${event.status_pendaftaran_peserta}"`

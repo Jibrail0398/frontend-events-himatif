@@ -44,6 +44,9 @@ const AddEventModal = ({ handleAdd, show, setShow }) => {
                         <Form.Select name="jenis" required>
                             <option value="">Pilih Jenis</option>
                             <option value="inaugurasi">Inaugurasi</option>
+                            <option value="workshop">Workshop</option>
+                            <option value="semnas">Seminar Nasional</option>
+                            <option value="perlombaan">Perlombaan</option>
                         </Form.Select>
                     </Form.Group>
 

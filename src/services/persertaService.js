@@ -48,11 +48,10 @@ export const getAll = async () => {
  */
 export const create = async (kodeEvent, data) => {
     try {
-        const token = getToken();
+        
         const response = await axios.post(
             `${BASE_URL_API}/pendaftaran-peserta/${kodeEvent}`,
-            data,
-            { headers: { Authorization: `Bearer ${token}` } }
+            data
         );
         return response.data;
     } catch (error) {
