@@ -1,5 +1,7 @@
 import axios from "axios";
 const BASE_URL_API = import.meta.env.VITE_BASE_URL_API;
+const token = localStorage.getItem("token");
+
 
 export const getDaftarHadirPanitia = async (token) => {
     try {
@@ -17,20 +19,32 @@ export const getDaftarHadirPanitia = async (token) => {
     }
 };
 
-export const getDaftarHadirPeserta = async (token) => {
-    try {
-        const response = await axios.get(`${BASE_URL_API}/presensi/peserta`, {
-            headers: { Authorization: `Bearer ${token}` },
+/**
+ * Content-Type: application/json
+ * @typedef getDaftarHadirPeserta
+ * @property {string} key
+ * @property {string} value
+ */
+
+export const getDaftarHadirPeserta = async(url,token) =>{
+
+
+    try{
+
+        const response = await axios.get(BASE_URL_API+url,{
+            headers:{
+                Authorization: `Bearer ${token}`,
+            }
         });
 
-        console.log("Response API (Peserta):", response.data);
+        return response.data;
 
-        return response.data.data ?? [];
-    } catch (error) {
-        console.error("Gagal fetch daftar hadir peserta:", error);
-        return [];
+
+    }catch(error){
+        throw error;
     }
-};
+
+}
 
 export const updatePresensiManual = async (token, id, status) => {
     try {
@@ -74,17 +88,32 @@ export const updatePresensiPanitia = async (token, id, status) => {
     }
 };
 
-export async function scanPresensi(requestData){
-    const response = await fetch(`${BASE_URL_API}/presensi/scan`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestData),
-      });
+export async function scanPresensi(requestData, token) {
+    try {
+        const response = await fetch(`${BASE_URL_API}/presensi/scan`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(requestData),
+        });
 
-    const result = await response.json();
-    return result;
+        // ✅ TAMBAHKAN: Handle HTTP error status
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(
+                errorData.message || 
+                `HTTP error! status: ${response.status}`
+            );
+        }
+
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('Error in scanPresensi:', error);
+        throw error;
+    }
 }
 
 

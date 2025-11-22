@@ -1,13 +1,16 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useLocalStorage } from "react-use";
 import { useParams } from "react-router-dom";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import useFormPresensiStore from "../stores/useFormPresensiStore";
 import "../style/FormPresensi.css";
+import Swal from 'sweetalert2';
 import { scanPresensi } from "../services/presensiService";
 
 const FormPresensi = () => {
   const { kodeEvent } = useParams();
 
+  const[token] = useLocalStorage("token");
   const [attendanceType, setAttendanceType] = useState("datang");
   const [scanResult, setScanResult] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -18,7 +21,7 @@ const FormPresensi = () => {
   const { checkIn, checkOut, getTodayStats } = useFormPresensiStore();
 
   const FIXED_EVENT_CODE = kodeEvent || "INAU2025";
-  const FIXED_EVENT_NAME = "Inaugurasi Mahasiswa Fakultas Ilmu Komputer";
+  const FIXED_EVENT_NAME = "Event Himatif";
 
   const { totalCheckedIn, totalCheckedOut } = getTodayStats();
 
@@ -36,125 +39,154 @@ const FormPresensi = () => {
 
   const processAttendance = async (scannedData) => {
     if (!scannedData.trim()) {
-      setScanMessage("QR Code tidak valid!");
+      // ❌ GANTI: setScanMessage dengan Sweet Alert
+      Swal.fire({
+        icon: 'error',
+        title: 'QR Code Tidak Valid',
+        text: 'QR Code yang di-scan tidak valid!',
+        confirmButtonText: 'OK'
+      });
       setScanStatus("error");
       return;
     }
 
     setIsLoading(true);
     setScanStatus("scanning");
-    setScanMessage("Mengirim data ke server...");
 
+    
+  try {
+    let requestData;
     try {
-      let requestData;
-      try {
-        const parsedData = JSON.parse(scannedData);
-        requestData = {
-          kode_event: parsedData.kode_event || FIXED_EVENT_CODE,
-          role: parsedData.role || "peserta", // Default ke 'peserta'
-          type: attendanceType,
-          id: parsedData.id || null,
-          kode: parsedData.kode || parsedData.nim || scannedData.trim(), // Support
-        };
-      } catch (error) {
-        requestData = {
-          kode_event: FIXED_EVENT_CODE,
-          role: "peserta",
-          type: attendanceType,
-          id: null,
-          kode: scannedData.trim(),
-        };
-      }
 
-      console.log("Sending data to API:", requestData);
+      const url = new URL(scannedData);
+      requestData = {
+          kode_event: url.searchParams.get("kode_event"),
+          role: url.searchParams.get("role"),
+          type: url.searchParams.get("type"),
+          id: url.searchParams.get("id") || null,
+          kode: url.searchParams.get("kode") || null
+      };
+    } catch (error) {
+        Swal.fire({
+        icon: 'error',
+        title: 'Gagal Parsing QRCode',
+        text: 'QR Code yang di-scan tidak valid!',
+        confirmButtonText: 'OK'
+      });
+    }
 
-      const result = await scanPresensi(requestData);
-      console.log("API Response:", result);
+    console.log("Sending data to API:", requestData);
 
-      if (response.ok && result.success) {
-        setScanMessage(result.message);
+    // ✅ PERBAIKI: Hapus 'response' dan gunakan hanya 'result'
+    const result = await scanPresensi(requestData, token);
+    console.log("API Response:", result);
+
+    // ✅ PERBAIKI: Gunakan result.success saja
+    if (result.success) {
+        await Swal.fire({
+            icon: 'success',
+            title: 'Presensi Berhasil!',
+            text: result.message,
+            confirmButtonText: 'OK',
+            timer: 3000,
+            timerProgressBar: true
+        });
+
         setScanStatus("success");
 
         const attendanceRecord = {
-          nim: requestData.kode,
-          eventCode: requestData.kode_event,
-          eventName: FIXED_EVENT_NAME,
-          timestamp: new Date().toLocaleString("id-ID"),
-          type: attendanceType,
-          method: "qr",
-          role: requestData.role,
+            nim: requestData.kode,
+            eventCode: requestData.kode_event,
+            eventName: FIXED_EVENT_NAME,
+            timestamp: new Date().toLocaleString("id-ID"),
+            type: attendanceType,
+            method: "qr",
+            role: requestData.role,
         };
 
         if (attendanceType === "datang") {
-          checkIn(attendanceRecord);
+            checkIn(attendanceRecord);
         } else {
-          checkOut(attendanceRecord);
+            checkOut(attendanceRecord);
         }
 
-        setTimeout(() => {
-          setScanResult(null);
-          setScanStatus("");
-          setScanMessage("");
+        setScanResult(null);
+        setScanStatus("");
+        setScanMessage("");
 
-          if (isScanning) {
+        if (isScanning) {
             restartScanner();
-          }
-        }, 3000);
-      } else {
+        }
+    } else {
         throw new Error(result.message || `Presensi ${attendanceType} gagal`);
-      }
-    } catch (err) {
-      console.error("Error processing attendance:", err);
-      setScanMessage(
-        err.message || "Terjadi kesalahan saat memproses presensi"
-      );
-      setScanStatus("error");
+    }
+  } catch (err) {
+    console.error("Error processing attendance:", err);
+    
+    await Swal.fire({
+        icon: 'error',
+        title: 'Presensi Gagal',
+        text: err.message || "Terjadi kesalahan saat memproses presensi",
+        confirmButtonText: 'OK'
+    });
 
-      // ✅ DIPERBAIKI: Fallback ke local storage dengan format yang benar
-      try {
+    setScanStatus("error");
+
+    // Fallback ke local storage
+    try {
         const fallbackData = {
-          nim: scannedData.trim(),
-          eventCode: FIXED_EVENT_CODE,
-          eventName: FIXED_EVENT_NAME,
-          timestamp: new Date().toLocaleString("id-ID"),
-          type: attendanceType,
-          method: "qr",
-          role: "peserta",
+            nim: scannedData.trim(),
+            eventCode: FIXED_EVENT_CODE,
+            eventName: FIXED_EVENT_NAME,
+            timestamp: new Date().toLocaleString("id-ID"),
+            type: attendanceType,
+            method: "qr",
+            role: "peserta",
         };
 
         let success = false;
         if (attendanceType === "datang") {
-          success = checkIn(fallbackData);
+            success = checkIn(fallbackData);
         } else {
-          success = checkOut(fallbackData);
+            success = checkOut(fallbackData);
         }
 
         if (success) {
-          setScanMessage(
-            `Presensi ${attendanceType} berhasil untuk: ${scannedData} (Data tersimpan lokal)`
-          );
-          setScanStatus("success");
+            await Swal.fire({
+                icon: 'success',
+                title: 'Presensi Berhasil (Offline)',
+                text: `Presensi ${attendanceType} berhasil untuk: ${scannedData} (Data tersimpan lokal)`,
+                confirmButtonText: 'OK',
+                timer: 3000,
+                timerProgressBar: true
+            });
 
-          setTimeout(() => {
+            setScanStatus("success");
             setScanResult(null);
             setScanStatus("");
             setScanMessage("");
             if (isScanning) restartScanner();
-          }, 3000);
         } else {
-          throw new Error("Presensi gagal! Mungkin sudah melakukan presensi.");
+            throw new Error("Presensi gagal! Mungkin sudah melakukan presensi.");
         }
-      } catch (fallbackError) {
-        setScanMessage(fallbackError.message);
+    } catch (fallbackError) {
+        await Swal.fire({
+            icon: 'error',
+            title: 'Presensi Gagal',
+            text: fallbackError.message,
+            confirmButtonText: 'OK'
+        });
         setScanStatus("error");
-      }
-    } finally {
-      setIsLoading(false);
     }
+  }finally {
+    setIsLoading(false);
+  }
+
   };
 
   // ✅ DIPERBAIKI: Function untuk restart scanner
   const restartScanner = () => {
+    
     if (scannerRef.current) {
       scannerRef.current
         .clear()
@@ -208,6 +240,7 @@ const FormPresensi = () => {
 
   // ✅ DIPERBAIKI: useEffect dengan dependency yang benar
   useEffect(() => {
+    console.log(kodeEvent)
     if (isScanning) {
       initializeScanner();
     }
@@ -310,39 +343,14 @@ const FormPresensi = () => {
               </button>
             </div>
           )}
-
-          {/* ✅ DIPERBAIKI: Status Feedback dengan pesan detail */}
-          {scanStatus === "scanning" && (
-            <div className="scan-status scanning">
-              <p>⏳ {scanMessage || "Memproses QR code..."}</p>
-            </div>
-          )}
-
-          {scanStatus === "success" && (
-            <div className="scan-status success">
-              <p>✅ {scanMessage || "Presensi berhasil!"}</p>
-            </div>
-          )}
-
-          {scanStatus === "error" && (
-            <div className="scan-status error">
-              <p>❌ {scanMessage || "Presensi gagal"}</p>
-            </div>
-          )}
-
-          {scanResult && (
-            <div className="scan-result">
-              <p>
-                📋 Terdeteksi: <strong>{scanResult}</strong>
-              </p>
-            </div>
-          )}
-
+          
           {isLoading && (
             <div className="loading-overlay">
-              <p>🔄 {scanMessage || "Mengirim data ke server..."}</p>
+              {/* ❌ OPSIONAL: Bisa dihapus jika tidak ingin loading overlay */}
+              <p>🔄 Memproses presensi...</p>
             </div>
           )}
+
         </div>
       </div>
     </div>

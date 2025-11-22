@@ -1,95 +1,62 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState,useMemo } from "react";
+import useDaftarHadir from "../../hooks/useDaftarHadir";
 import { FaEye, FaSort, FaFileExcel } from "react-icons/fa";
 import { createPortal } from "react-dom";
 import Swal from "sweetalert2";
+import useEvent from "../../hooks/useEvent";
 import * as XLSX from "xlsx";
-import {
-    getDaftarHadirPeserta,
-    updatePresensiManual,
-} from "../../services/presensiService";
+
 
 export default function DaftarHadirPeserta() {
     const [selectedRow, setSelectedRow] = useState(null);
     const [showFilterModal, setShowFilterModal] = useState(false);
 
     const [filterText, setFilterText] = useState("");
-    const [filterProdi, setFilterProdi] = useState("");
-    const [filterAngkatan, setFilterAngkatan] = useState("");
-    const [filterKehadiran, setFilterKehadiran] = useState("");
-
-    const [peserta, setPeserta] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [filterEvent, setFilterEvents] = useState("");
+    
 
     // 🔹 Pagination
     const [currentPage, setCurrentPage] = useState(1);
     const [rowsPerPage, setRowsPerPage] = useState(10);
 
-    // 🔹 Ambil data dari API saat mount
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const token = localStorage.getItem("token");
-                if (!token) {
-                    console.error("❌ Token tidak ditemukan di localStorage!");
-                    setLoading(false);
-                    return;
-                }
+    //Ambil store daftar hadir
+    const {loading,peserta,getAll} = useDaftarHadir();
 
-                const response = await getDaftarHadirPeserta(token);
-                console.log("✅ Data peserta diterima (API):", response);
+    //Ambil store event
+    const {events,getPublicEvents} = useEvent();
+    
 
-                const data = Array.isArray(response)
-                    ? response
-                    : response?.data ?? [];
+    useEffect(()=>{
+        getAll();
+        getPublicEvents();
 
-                const formatted = data.map((item, index) => {
-                    const penerimaan = item.penerimaan_peserta || {};
-                    const p = penerimaan.pendaftar_peserta || {};
-                    return {
-                        id: item.id ?? index + 1,
-                        nama: p.nama ?? "-",
-                        nim: p.NIM ?? p.nim ?? "-",
-                        program_studi: p.divisi ?? p.program_studi ?? "-",
-                        angkatan: p.angkatan ?? "-",
-                        kelas: p.kelas ?? "-",
-                        email: p.email ?? "-",
-                        event: p.event?.nama_event ?? "-",
-                        kehadiran: item.presensi_datang
-                            ? item.presensi_datang === "hadir"
-                                ? "Hadir"
-                                : "Tidak Hadir"
-                            : "Belum Absen",
-                        waktu_presensi:
-                            item.waktu_presensi_datang ?? item.created_at ?? null,
-                    };
-                });
+        
+        
+    },[]);
 
-                setPeserta(formatted);
-            } catch (err) {
-                console.error("⚠️ Gagal memuat data peserta:", err);
-                setPeserta([]);
-            } finally {
-                setLoading(false);
-            }
-        };
+    const filteredData = useMemo(() => {
+        if (!peserta) return [];
 
-        fetchData();
-    }, []);
+        return peserta.filter((p) => {
+            const nama = p?.nama.toLowerCase()??"";
+            const nim = p?.NIM??"";
 
-    // 🔹 Filter pencarian
-    const filteredData = peserta.filter((p) => {
-        const matchText =
-            p.nama.toLowerCase().includes(filterText.toLowerCase()) ||
-            String(p.nim).includes(filterText);
-        const matchProdi =
-            filterProdi === "" || p.program_studi === filterProdi;
-        const matchAngkatan =
-            filterAngkatan === "" ||
-            String(p.angkatan) === String(filterAngkatan);
-        const matchKehadiran =
-            filterKehadiran === "" || p.kehadiran === filterKehadiran;
-        return matchText && matchProdi && matchAngkatan && matchKehadiran;
-    });
+            const matchText =
+                nama.includes(filterText.toLowerCase()) ||
+                nim.includes(filterText);
+
+            
+            const matchEvent = filterEvent === "" || 
+                p.event_id?.toString() === filterEvent.toString();
+
+ 
+
+            return matchText && matchEvent ;
+        });
+    }, [peserta, filterText, filterEvent]);
+    
+
+    
 
     // 🔹 Pagination logic
     const totalPages = Math.ceil(filteredData.length / rowsPerPage);
@@ -113,16 +80,8 @@ export default function DaftarHadirPeserta() {
         const exportData = filteredData.map((p, index) => ({
             No: index + 1,
             Nama: p.nama,
-            NIM: p.nim,
-            Prodi: p.program_studi,
-            Angkatan: p.angkatan,
-            Kelas: p.kelas,
+            NIM: p.NIM,
             Email: p.email,
-            Event: p.event,
-            Kehadiran: p.kehadiran,
-            "Waktu Presensi": p.waktu_presensi
-                ? new Date(p.waktu_presensi).toLocaleString("id-ID")
-                : "-",
         }));
 
         const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -145,42 +104,6 @@ export default function DaftarHadirPeserta() {
         XLSX.writeFile(workbook, fileName);
 
         Swal.fire("✅", "Data berhasil diekspor ke Excel!", "success");
-    };
-
-    // ✅ Fungsi update kehadiran ke backend
-    const handleKehadiranChange = async (id, newStatus) => {
-        try {
-            const token = localStorage.getItem("token");
-            if (!token) {
-                Swal.fire("Error", "Token tidak ditemukan di localStorage!", "error");
-                return;
-            }
-
-            const response = await updatePresensiManual(
-                token,
-                id,
-                newStatus.toLowerCase()
-            );
-            console.log("Update Response:", response);
-
-            setPeserta((prev) =>
-                prev.map((p) =>
-                    p.id === id ? { ...p, kehadiran: newStatus } : p
-                )
-            );
-            setSelectedRow((prev) => ({ ...prev, kehadiran: newStatus }));
-
-            Swal.fire({
-                icon: "success",
-                title: "Berhasil!",
-                text: `Status kehadiran diubah menjadi ${newStatus}.`,
-                timer: 1500,
-                showConfirmButton: false,
-            });
-        } catch (err) {
-            console.error("❌ Gagal memperbarui presensi:", err);
-            Swal.fire("Error", "Gagal memperbarui presensi manual!", "error");
-        }
     };
 
     return (
@@ -225,11 +148,9 @@ export default function DaftarHadirPeserta() {
                                         <tr>
                                             <th>No</th>
                                             <th>Nama</th>
-                                            <th>Prodi</th>
-                                            <th>Angkatan</th>
+                                            <th>Email</th>
                                             <th>NIM</th>
-                                            <th>Kelas</th>
-                                            <th>Kehadiran</th>
+                                            
                                             <th>Aksi</th>
                                         </tr>
                                     </thead>
@@ -239,23 +160,8 @@ export default function DaftarHadirPeserta() {
                                                 <tr key={row.id}>
                                                     <td>{startIndex + index + 1}</td>
                                                     <td>{row.nama}</td>
-                                                    <td>{row.program_studi}</td>
-                                                    <td>{row.angkatan}</td>
-                                                    <td>{row.nim}</td>
-                                                    <td>{row.kelas}</td>
-                                                    <td>
-                                                        <span
-                                                            className={`badge ${
-                                                                row.kehadiran === "Hadir"
-                                                                    ? "badge-success"
-                                                                    : row.kehadiran === "Tidak Hadir"
-                                                                    ? "badge-danger"
-                                                                    : "badge-warning"
-                                                            }`}
-                                                        >
-                                                            {row.kehadiran}
-                                                        </span>
-                                                    </td>
+                                                    <td>{row.email}</td>
+                                                    <td>{row.NIM}</td>
                                                     <td>
                                                         <button
                                                             className="btn btn-sm btn-info"
@@ -358,45 +264,20 @@ export default function DaftarHadirPeserta() {
                             <h5 className="modal-header">Filter Kehadiran</h5>
                             <div className="modal-details">
                                 <div className="mb-2">
-                                    <label>Program Studi:</label>
+                                    <label>Events</label>
                                     <select
-                                        value={filterProdi}
-                                        onChange={(e) => setFilterProdi(e.target.value)}
+                                        value={filterEvent}
+                                        onChange={(e) => setFilterEvents(e.target.value)}
                                         className="form-control"
                                     >
-                                        <option value="">Semua Prodi</option>
-                                        <option value="Teknik Informatika">Teknik Informatika</option>
-                                        <option value="Sistem Informasi">Sistem Informasi</option>
+                                        <option value="">Tampilkan Semua</option>
+                                        {events.map((event)=>(
+                                            <option key={event.id} value={event.id}>{event.nama_event}</option>
+                                        ))}
                                     </select>
                                 </div>
 
-                                <div className="mb-2">
-                                    <label>Angkatan:</label>
-                                    <select
-                                        value={filterAngkatan}
-                                        onChange={(e) => setFilterAngkatan(e.target.value)}
-                                        className="form-control"
-                                    >
-                                        <option value="">Semua Angkatan</option>
-                                        <option value="2022">2022</option>
-                                        <option value="2023">2023</option>
-                                        <option value="2024">2024</option>
-                                    </select>
-                                </div>
-
-                                <div className="mb-2">
-                                    <label>Status Kehadiran:</label>
-                                    <select
-                                        value={filterKehadiran}
-                                        onChange={(e) => setFilterKehadiran(e.target.value)}
-                                        className="form-control"
-                                    >
-                                        <option value="">Semua</option>
-                                        <option value="Hadir">Hadir</option>
-                                        <option value="Tidak Hadir">Tidak Hadir</option>
-                                        <option value="Belum Absen">Belum Absen</option>
-                                    </select>
-                                </div>
+                            
                             </div>
 
                             <div className="mt-4 d-flex justify-content-end gap-2">
@@ -454,20 +335,7 @@ export default function DaftarHadirPeserta() {
                                 </p>
                             </div>
 
-                            <div className="mt-4 d-flex justify-content-center gap-2">
-                                <button
-                                    className="btn btn-success"
-                                    onClick={() => handleKehadiranChange(selectedRow.id, "Hadir")}
-                                >
-                                    Tandai Hadir
-                                </button>
-                                <button
-                                    className="btn btn-danger"
-                                    onClick={() => handleKehadiranChange(selectedRow.id, "Tidak Hadir")}
-                                >
-                                    Tandai Tidak Hadir
-                                </button>
-                            </div>
+                            
 
                             <div className="mt-3 text-center">
                                 <button

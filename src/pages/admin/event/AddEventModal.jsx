@@ -14,6 +14,7 @@ const AddEventModal = ({ handleAdd, show, setShow }) => {
             tempat: data.get("tempat"),
             status_pendaftaran_panitia: data.get("status_pendaftaran_panitia"),
             status_pendaftaran_peserta: data.get("status_pendaftaran_peserta"),
+            harga_pendaftaran_peserta: data.get("harga_pendaftaran_peserta"),
         });
 
         setShow(false);
@@ -60,6 +61,22 @@ const AddEventModal = ({ handleAdd, show, setShow }) => {
                     <Form.Group className="mb-3">
                         <Form.Label>Tempat</Form.Label>
                         <Form.Control type="text" name="tempat" required />
+                    </Form.Group>
+
+                    {/* Harga Pendaftaran Peserta */}
+                    <Form.Group className="mb-3">
+                        <Form.Label>Harga Pendaftaran Peserta</Form.Label>
+                        <Form.Control 
+                            type="number" 
+                            name="harga_pendaftaran_peserta" 
+                            min="0"
+                            step="1000"
+                            placeholder="0"
+                            required 
+                        />
+                        <Form.Text className="text-muted">
+                            Masukkan harga dalam satuan Rupiah
+                        </Form.Text>
                     </Form.Group>
 
                     {/* Status Pendaftaran Panitia Select */}
