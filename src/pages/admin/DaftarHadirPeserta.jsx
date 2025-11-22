@@ -49,7 +49,6 @@ export default function DaftarHadirPeserta() {
             const matchEvent = filterEvent === "" || 
                 p.event_id?.toString() === filterEvent.toString();
 
- 
 
             return matchText && matchEvent ;
         });

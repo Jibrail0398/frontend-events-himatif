@@ -1,129 +1,57 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState,useMemo } from "react";
 import { FaEye, FaSort, FaFileExcel } from "react-icons/fa";
 import { createPortal } from "react-dom";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
-import {
-    getDaftarHadirPanitia,
-    updatePresensiPanitia,
-} from "../../services/presensiService";
+import useEvent from "../../hooks/useEvent";
+import useDaftarHadir from "../../hooks/useDaftarHadir";
 
 export default function DaftarKehadiran() {
+
     const [selectedRow, setSelectedRow] = useState(null);
     const [showFilterModal, setShowFilterModal] = useState(false);
 
     const [filterText, setFilterText] = useState("");
-    const [filterDivisi, setFilterDivisi] = useState("");
-    const [filterAngkatan, setFilterAngkatan] = useState("");
-    const [filterKehadiran, setFilterKehadiran] = useState("");
+   
+    const [filterEvent, setFilterEvent] = useState("");
 
-    const [panitia, setPanitia] = useState([]);
-    const [loading, setLoading] = useState(true);
+
+    //get Daftar Events
+    const {events,getPublicEvents} = useEvent();
+
+    //get All Panitia
+    const {loading,panitia,getAllPanitia} = useDaftarHadir();
 
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
     const [rowsPerPage, setRowsPerPage] = useState(10);
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const token = localStorage.getItem("token");
-                if (!token) {
-                    console.error("❌ Token tidak ditemukan di localStorage!");
-                    setLoading(false);
-                    return;
-                }
-
-                const response = await getDaftarHadirPanitia(token);
-                console.log("✅ Data panitia diterima (API):", response);
-
-                const data = Array.isArray(response)
-                    ? response
-                    : response?.data ?? [];
-
-                const formatted = data.map((item, index) => {
-                    const penerimaan = item.penerimaan_panitia || {};
-                    const p = penerimaan.pendaftar_panitia || {};
-                    return {
-                        id: item.id ?? index + 1,
-                        nama: p.nama ?? "-",
-                        nim: p.NIM ?? p.nim ?? "-",
-                        divisi: p.divisi ?? "-",
-                        angkatan: p.angkatan ?? "-",
-                        kelas: p.kelas ?? "-",
-                        email: p.email ?? "-",
-                        event: p.event?.nama_event ?? "-",
-                        kehadiran: item.presensi_datang
-                            ? item.presensi_datang === "hadir"
-                                ? "Hadir"
-                                : "Tidak Hadir"
-                            : "Belum Absen",
-                        waktu_presensi:
-                            item.waktu_presensi_datang ?? item.created_at ?? null,
-                    };
-                });
-
-                setPanitia(formatted);
-            } catch (err) {
-                console.error("⚠️ Gagal memuat data panitia:", err);
-                setPanitia([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchData();
+        getAllPanitia();
+        getPublicEvents();
     }, []);
 
-    // ✅ Update presensi panitia ke backend
-    const handleKehadiranChange = async (id, newStatus) => {
-        try {
-            const token = localStorage.getItem("token");
-            if (!token) {
-                Swal.fire("Error", "Token tidak ditemukan di localStorage!", "error");
-                return;
-            }
-
-            const response = await updatePresensiPanitia(
-                token,
-                id,
-                newStatus.toLowerCase()
-            );
-            console.log("✅ Presensi panitia berhasil diperbarui:", response);
-
-            setPanitia((prev) =>
-                prev.map((p) =>
-                    p.id === id ? { ...p, kehadiran: newStatus } : p
-                )
-            );
-            setSelectedRow((prev) => ({ ...prev, kehadiran: newStatus }));
-
-            Swal.fire({
-                icon: "success",
-                title: "Berhasil!",
-                text: `Status kehadiran diubah menjadi ${newStatus}.`,
-                timer: 1500,
-                showConfirmButton: false,
-            });
-        } catch (err) {
-            console.error("❌ Gagal memperbarui presensi panitia:", err);
-            Swal.fire("Error", "Gagal memperbarui presensi panitia!", "error");
-        }
-    };
-
+    
     // 🔹 Filter pencarian
-    const filteredData = panitia.filter((p) => {
-        const matchText =
-            p.nama.toLowerCase().includes(filterText.toLowerCase()) ||
-            String(p.nim).includes(filterText);
-        const matchDivisi = filterDivisi === "" || p.divisi === filterDivisi;
-        const matchAngkatan =
-            filterAngkatan === "" ||
-            String(p.angkatan) === String(filterAngkatan);
-        const matchKehadiran =
-            filterKehadiran === "" || p.kehadiran === filterKehadiran;
-        return matchText && matchDivisi && matchAngkatan && matchKehadiran;
-    });
+    const filteredData = useMemo(() => {
+        if (!panitia) return [];
+
+        return panitia.filter((p) => {
+            const nama = p?.nama.toLowerCase()??"";
+            const nim = p?.NIM??"";
+
+            const matchText =
+                nama.includes(filterText.toLowerCase()) ||
+                nim.includes(filterText);
+
+            
+            const matchEvent = filterEvent === "" || 
+                p.event_id?.toString() === filterEvent.toString();
+
+
+            return matchText && matchEvent ;
+        });
+    }, [panitia, filterText, filterEvent]);
 
     // Pagination logic
     const totalPages = Math.ceil(filteredData.length / rowsPerPage);
@@ -148,16 +76,8 @@ export default function DaftarKehadiran() {
         const exportData = filteredData.map((p, index) => ({
             No: index + 1,
             Nama: p.nama,
-            NIM: p.nim,
-            Divisi: p.divisi,
-            Angkatan: p.angkatan,
-            Kelas: p.kelas,
+            NIM: p.NIM,
             Email: p.email,
-            Event: p.event,
-            Kehadiran: p.kehadiran,
-            "Waktu Presensi": p.waktu_presensi
-                ? new Date(p.waktu_presensi).toLocaleString("id-ID")
-                : "-",
         }));
 
         const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -225,11 +145,8 @@ export default function DaftarKehadiran() {
                                         <tr>
                                             <th>No</th>
                                             <th>Nama</th>
-                                            <th>Divisi</th>
-                                            <th>Angkatan</th>
                                             <th>NIM</th>
-                                            <th>Kelas</th>
-                                            <th>Kehadiran</th>
+                                            <th>email</th>
                                             <th>Aksi</th>
                                         </tr>
                                     </thead>
@@ -241,23 +158,8 @@ export default function DaftarKehadiran() {
                                                         {(currentPage - 1) * rowsPerPage + index + 1}
                                                     </td>
                                                     <td>{row.nama}</td>
-                                                    <td>{row.divisi}</td>
-                                                    <td>{row.angkatan}</td>
-                                                    <td>{row.nim}</td>
-                                                    <td>{row.kelas}</td>
-                                                    <td>
-                                                        <span
-                                                            className={`badge ${
-                                                                row.kehadiran === "Hadir"
-                                                                    ? "bg-success"
-                                                                    : row.kehadiran === "Tidak Hadir"
-                                                                    ? "bg-danger"
-                                                                    : "bg-warning text-dark"
-                                                            }`}
-                                                        >
-                                                            {row.kehadiran}
-                                                        </span>
-                                                    </td>
+                                                    <td>{row.NIM}</td>
+                                                    <td>{row.email}</td>
                                                     <td>
                                                         <button
                                                             className="btn btn-sm btn-info"
@@ -371,48 +273,21 @@ export default function DaftarKehadiran() {
                             </span>
 
                             <h5 className="modal-header">Filter Kehadiran Panitia</h5>
-                            <div className="modal-details">
-                                <div className="mb-2">
-                                    <label>Divisi:</label>
-                                    <select
-                                        value={filterDivisi}
-                                        onChange={(e) => setFilterDivisi(e.target.value)}
-                                        className="form-control"
-                                    >
-                                        <option value="">Semua Divisi</option>
-                                        <option value="Konsumsi">Konsumsi</option>
-                                        <option value="Perlengkapan">Perlengkapan</option>
-                                        <option value="Acara">Acara</option>
-                                        <option value="Keamanan">Keamanan</option>
-                                        <option value="Medis">Medis</option>
-                                    </select>
-                                </div>
-
-                                <div className="mb-2">
-                                    <label>Angkatan:</label>
-                                    <select
-                                        value={filterAngkatan}
-                                        onChange={(e) => setFilterAngkatan(e.target.value)}
-                                        className="form-control"
-                                    >
-                                        <option value="">Semua Angkatan</option>
-                                        <option value="2022">2022</option>
-                                        <option value="2023">2023</option>
-                                        <option value="2024">2024</option>
-                                    </select>
-                                </div>
+                            <div className="modal-details">                                  
 
                                 <div className="mb-2">
                                     <label>Status Kehadiran:</label>
                                     <select
-                                        value={filterKehadiran}
-                                        onChange={(e) => setFilterKehadiran(e.target.value)}
+                                        value={filterEvent}
+                                        onChange={(e) => setFilterEvent(e.target.value)}
                                         className="form-control"
                                     >
                                         <option value="">Semua</option>
-                                        <option value="Hadir">Hadir</option>
-                                        <option value="Tidak Hadir">Tidak Hadir</option>
-                                        <option value="Belum Absen">Belum Absen</option>
+                                        {
+                                            events.map((item)=>(
+                                                <option key={item.id} value={item.id} >{item.nama_event}</option>
+                                            ))
+                                        }
                                     </select>
                                 </div>
                             </div>
@@ -477,24 +352,7 @@ export default function DaftarKehadiran() {
                                 </p>
                             </div>
 
-                            <div className="mt-4 d-flex justify-content-center gap-2">
-                                <button
-                                    className="btn btn-success"
-                                    onClick={() =>
-                                        handleKehadiranChange(selectedRow.id, "Hadir")
-                                    }
-                                >
-                                    Tandai Hadir
-                                </button>
-                                <button
-                                    className="btn btn-danger"
-                                    onClick={() =>
-                                        handleKehadiranChange(selectedRow.id, "Tidak Hadir")
-                                    }
-                                >
-                                    Tandai Tidak Hadir
-                                </button>
-                            </div>
+                            
 
                             <div className="mt-3 text-center">
                                 <button

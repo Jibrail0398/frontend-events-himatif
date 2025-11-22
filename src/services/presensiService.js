@@ -3,27 +3,37 @@ const BASE_URL_API = import.meta.env.VITE_BASE_URL_API;
 const token = localStorage.getItem("token");
 
 
-export const getDaftarHadirPanitia = async (token) => {
-    try {
-        const response = await axios.get(`${BASE_URL_API}/presensi/panitia`, {
-            headers: { Authorization: `Bearer ${token}` },
+/**
+ * Content-Type: application/json
+ * @typedef getDaftarHadirPanitia
+ * @property {string} url
+ * @property {string} token
+ */
+
+export const getDaftarHadirPanitia = async (url,token) => {
+    try{
+
+        const response = await axios.get(BASE_URL_API+url,{
+            headers:{
+                Authorization: `Bearer ${token}`,
+            }
         });
 
-        console.log("Response API:", response.data);
 
-        // 🔹 Ambil hanya array dari respons
-        return response.data.data ?? [];
-    } catch (error) {
-        console.error("Gagal fetch daftar hadir panitia:", error);
-        return [];
+        return response.data;
+
+    }catch(error){
+        throw error;
     }
 };
+
+
 
 /**
  * Content-Type: application/json
  * @typedef getDaftarHadirPeserta
- * @property {string} key
- * @property {string} value
+ * @property {string} url
+ * @property {string} token
  */
 
 export const getDaftarHadirPeserta = async(url,token) =>{
